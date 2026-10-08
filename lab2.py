@@ -16,22 +16,15 @@ vertices = [
     ( 1, -1,  1),   
     (-1, -1,  1),   
     ( 0,  1,  0),   
-  
 ]
 
 faces = [
     [0, 1, 2, 3], #основание
-    [0, 1, 4],    
-    [1, 2, 4],     
-    [2, 3, 4],      
-    [3, 0, 4],      
+    [0, 1, 4],    #передняя
+    [1, 4, 2],    #правая
+    [2, 4, 3],    #задняя
+    [3, 4, 0],    #левая
 ]
-
-cx = sum(v[0] for v in vertices) / len(vertices)
-cy = sum(v[1] for v in vertices) / len(vertices)
-cz = sum(v[2] for v in vertices) / len(vertices)
-
-print("Центр пирамиды:", cx, cy, cz)
 
 edges = set()
 for face in faces:
@@ -46,25 +39,12 @@ edges = list(edges)
 angle_z = 0.0
 angle_x = 0.0
 angle_y = 0.0
-#перемещение
-tx, ty, tz = 0.0, 0.0, 0.0
 change = 0.02
 scale = 200
-#масштаб
-scale_factor = 1.0
 #длина осей
 len = 1.5
 cam1 = math.radians(-30)   
 cam2 = math.radians(20)  
-
-#матрица перемещения
-def transfer_matr(tx, ty, tz):
-    return [
-        [1, 0, 0, tx],
-        [0, 1, 0, ty],
-        [0, 0, 1, tz],
-        [0, 0, 0, 1],
-    ]
 
 #матрица вращения по z
 def rot_z(a):
@@ -138,16 +118,35 @@ def norm_angle_deg(rad):
         deg -= 360
     return deg
 
+#нормаль грани
+def face_normal(face, verts):
+    p0 = verts[face[0]]
+    p1 = verts[face[1]]
+    p2 = verts[face[2]]
+    
+    ax, ay, az = p1[0]-p0[0], p1[1]-p0[1], p1[2]-p0[2]
+    bx, by, bz = p2[0]-p0[0], p2[1]-p0[1], p2[2]-p0[2]
+    
+    nx = ay*bz - az*by
+    ny = az*bx - ax*bz
+    nz = ax*by - ay*bx
+    
+    length = math.sqrt(nx*nx + ny*ny + nz*nz)
+    if length == 0:
+        return (0, 0, 0)
+    return (nx/length, ny/length, nz/length)
+
 running = True
 auto_rotating = False
 while running:
     for e in pygame.event.get():
         if e.type == pygame.QUIT:
             running = False
+    
     keys = pygame.key.get_pressed()
-
     ctrl  = keys[pygame.K_LCTRL]
     shift = keys[pygame.K_LSHIFT]
+
     z_key = keys[pygame.K_z]
     if z_key and ctrl:
         angle_z += change    
@@ -167,20 +166,19 @@ while running:
         angle_y -= change
 
     R = mul(rot_z(angle_z), mul(rot_y(angle_y), rot_x(angle_x)))
-    T_plus  = transfer_matr( cx,  cy,  cz)
-    T_minus = transfer_matr(-cx, -cy, -cz)
-
-    M = mul(T_plus, mul(R, T_minus))
 
     transformed = []
     for v in vertices:
-        transformed.append(transfer(M, v))
+        transformed.append(transfer(R, v))
     screen.fill((255, 255, 255))
 
     axis_points = [
         ((0, 0, 0), (len, 0, 0), (255, 0, 0), "X"),
         ((0, 0, 0), (0, len, 0), (0, 180, 0), "Y"),
         ((0, 0, 0), (0, 0, len), (0, 0, 255), "Z"),
+        ((0, 0, 0), (-len, 0, 0), (255, 150, 150), "-X"),
+        ((0, 0, 0), (0, -len, 0), (150, 220, 150), "-Y"),
+        ((0, 0, 0), (0, 0, -len), (150, 150, 255), "-Z"),
     ]
     for p1, p2, color, name in axis_points:
         q1 = to_screen(p1)
@@ -201,7 +199,6 @@ while running:
         f"rot:  X={norm_angle_deg(angle_x):+7.1f}  Y={norm_angle_deg(angle_y):+7.1f}  Z={norm_angle_deg(angle_z):+7.1f}",
         "Ctrl + Z/X/Y - вращение +",
         "Shift + Z/X/Y - вращение -",
-        "ESC - выход",
     ]
     
     for i, line in enumerate(info):
