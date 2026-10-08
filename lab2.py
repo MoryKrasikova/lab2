@@ -10,34 +10,37 @@ font = pygame.font.SysFont("consolas", 20)
 
 depth = 0.3
 
-front = [
-    (0.0, 0.0, depth),
-    (0.0, 1.0, depth),
-    (0.0, -1.0, depth),
-    (1.0, 1.0, depth),
-    (1.0, -1.0, depth),
+vertices = [
+    (-1, -1, -1),   
+    ( 1, -1, -1),   
+    ( 1, -1,  1),   
+    (-1, -1,  1),   
+    ( 0,  1,  0),   
+  
 ]
 
-back = [
-    (0.0, 0.0, -depth),
-    (0.0, 1.0, -depth),
-    (0.0, -1.0, -depth),
-    (1.0, 1.0, -depth),
-    (1.0, -1.0, -depth),
+faces = [
+    [0, 1, 2, 3], #основание
+    [0, 1, 4],    
+    [1, 2, 4],     
+    [2, 3, 4],      
+    [3, 0, 4],      
 ]
 
-vertices = front + back
 cx = sum(v[0] for v in vertices) / len(vertices)
 cy = sum(v[1] for v in vertices) / len(vertices)
 cz = sum(v[2] for v in vertices) / len(vertices)
 
-print("Центр буквы:", cx, cy, cz)
+print("Центр пирамиды:", cx, cy, cz)
 
-edges = [
-    (0,1), (0,2), (0,3), (0,4),
-    (5,6), (5,7), (5,8), (5,9),
-    (0,5), (1,6), (2,7), (3,8), (4,9),
-]
+edges = set()
+for face in faces:
+    n = len(face)
+    for i in range(n):
+        a = face[i]
+        b = face[(i + 1) % n]
+        edges.add((min(a, b), max(a, b)))
+edges = list(edges)
 
 #вращение
 angle_z = 0.0
