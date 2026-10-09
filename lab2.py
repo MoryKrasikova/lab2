@@ -149,21 +149,8 @@ def face_normal(face, verts):
 
 def is_face_visible(face, verts):
     n = face_normal(face, verts)
-    cx, cy, cz = to_cam_dir(n)
+    cx, cy, cz = to_cam(n)
     return cz > 0
-
-
-def to_cam_dir(n):
-    x, y, z = n
-    cy, sy = math.cos(cam1), math.sin(cam1)
-    x1 = x * cy + z * sy
-    z1 = -x * sy + z * cy
-    y1 = y
-    cp, sp = math.cos(cam2), math.sin(cam2)
-    x2 = x1
-    y2 = y1 * cp - z1 * sp
-    z2 = y1 * sp + z1 * cp
-    return (x2, y2, z2)
 
 running = True
 auto_rotating = False
