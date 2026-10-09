@@ -20,7 +20,7 @@ vertices = [
 
 faces = [
     [0, 1, 2, 3], #основание
-    [0, 1, 4],    #передняя
+    [0, 4, 1],    #передняя
     [1, 4, 2],    #правая
     [2, 4, 3],    #задняя
     [3, 4, 0],    #левая
@@ -35,11 +35,20 @@ for face in faces:
         edges.add((min(a, b), max(a, b)))
 edges = list(edges)
 
+edge_faces = {}
+for fid, face in enumerate(faces):
+    n = len(face)
+    for i in range(n):
+        a = face[i]
+        b = face[(i + 1) % n]
+        key = (min(a, b), max(a, b))
+        edge_faces.setdefault(key, []).append(fid)
+
 #вращение
 angle_z = 0.0
 angle_x = 0.0
 angle_y = 0.0
-change = 0.02
+change = 0.03
 scale = 200
 #длина осей
 len = 1.5
@@ -86,21 +95,23 @@ def transfer(M, v):
             out[i] += M[i][j] * vec[j]
     return (out[0], out[1], out[2])
 
-#проекция
-def to_screen(p):
+def to_cam(p):
     x, y, z = p
-
     cy, sy = math.cos(cam1), math.sin(cam1)
-    x1 =  x * cy + z * sy
+    x1 = x * cy + z * sy
     z1 = -x * sy + z * cy
-    y1 =  y
+    y1 = y
 
     cp, sp = math.cos(cam2), math.sin(cam2)
     x2 = x1
     y2 = y1 * cp - z1 * sp
+    z2 = y1 * sp + z1 * cp  # глубина в системе камеры
+    return (x2, y2, z2)
 
-    return (int(W // 2 + x2 * scale),
-            int(H // 2 - y2 * scale))
+
+def to_screen(p):
+    x2, y2, _ = to_cam(p)
+    return (int(W // 2 + x2 * scale), int(H // 2 - y2 * scale))
 
 #переножение матриц
 def mul(A, B):
@@ -136,13 +147,35 @@ def face_normal(face, verts):
         return (0, 0, 0)
     return (nx/length, ny/length, nz/length)
 
+def is_face_visible(face, verts):
+    n = face_normal(face, verts)
+    cx, cy, cz = to_cam_dir(n)
+    return cz > 0
+
+
+def to_cam_dir(n):
+    x, y, z = n
+    cy, sy = math.cos(cam1), math.sin(cam1)
+    x1 = x * cy + z * sy
+    z1 = -x * sy + z * cy
+    y1 = y
+    cp, sp = math.cos(cam2), math.sin(cam2)
+    x2 = x1
+    y2 = y1 * cp - z1 * sp
+    z2 = y1 * sp + z1 * cp
+    return (x2, y2, z2)
+
 running = True
 auto_rotating = False
+show_faces = False
 while running:
     for e in pygame.event.get():
         if e.type == pygame.QUIT:
             running = False
-    
+        if e.type == pygame.KEYDOWN:
+            if e.key == pygame.K_SPACE:
+                show_faces = not show_faces
+
     keys = pygame.key.get_pressed()
     ctrl  = keys[pygame.K_LCTRL]
     shift = keys[pygame.K_LSHIFT]
@@ -170,6 +203,8 @@ while running:
     transformed = []
     for v in vertices:
         transformed.append(transfer(R, v))
+    visible_faces = [is_face_visible(f, transformed) for f in faces]
+    
     screen.fill((255, 255, 255))
 
     axis_points = [
@@ -190,15 +225,23 @@ while running:
     dot = to_screen((0, 0, 0))
     pygame.draw.circle(screen, (0, 0, 0), dot, 4)
 
-    for a, b in edges:
-        pa = to_screen(transformed[a])
-        pb = to_screen(transformed[b])
-        pygame.draw.line(screen, (0, 0, 0), pa, pb, 3)
+    if show_faces:
+        for fid, face in enumerate(faces):
+            if visible_faces[fid]:
+                pts = [to_screen(transformed[i]) for i in face]
+                pygame.draw.polygon(screen, (220, 235, 255), pts)
 
+    for (a, b) in edges:
+        fids = edge_faces[(a, b)]
+        if any(visible_faces[fid] for fid in fids):
+            pa = to_screen(transformed[a])
+            pb = to_screen(transformed[b])
+            pygame.draw.line(screen, (0, 0, 0), pa, pb, 3)
     info = [
         f"rot:  X={norm_angle_deg(angle_x):+7.1f}  Y={norm_angle_deg(angle_y):+7.1f}  Z={norm_angle_deg(angle_z):+7.1f}",
         "Ctrl + Z/X/Y - вращение +",
         "Shift + Z/X/Y - вращение -",
+        "Space - показать/скрыть заливку видимых граней",
     ]
     
     for i, line in enumerate(info):
